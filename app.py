@@ -128,6 +128,7 @@ with gr.Blocks() as app:
     btn.click(fn=run_pipeline,
               inputs=[jd_input, resumes_input],
               outputs=[output_text, output_table, output_plot])
+iface.launch(server_name="0.0.0.0", server_port=10000)
 
 # For Render, must call app.launch() only if this is main
 if __name__ == "__main__":
