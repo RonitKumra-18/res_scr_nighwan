@@ -1,0 +1,6 @@
+gradio
+pdfplumber
+pandas
+matplotlib
+fuzzywuzzy
+python-Levenshtein
