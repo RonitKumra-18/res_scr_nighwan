@@ -3,23 +3,21 @@ import re
 import pdfplumber
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib
 from fuzzywuzzy import fuzz
 import gradio as gr
-import tempfile
-import shutil
+from io import BytesIO
+
+matplotlib.use('Agg')  # Use non-GUI backend for matplotlib (important for Render)
 
 # Master skill list
-skill_list = [
-    'python', 'machine learning', 'deep learning', 'sql', 'aws', 'numpy',
-    'javascript', 'c++', 'c', 'html', 'css', 'nlp', 'react', 'java',
-    'excel', 'pandas', 'tensorflow', 'web scraping', 'google colab'
-]
+skill_list = ['python', 'machine learning', 'deep learning', 'sql', 'aws', 'numpy',
+              'javascript', 'c++', 'c', 'html', 'css', 'nlp', 'react', 'java',
+              'excel', 'pandas', 'tensorflow', 'web scraping', 'google colab']
 
 # Degree list
-degree_list = [
-    'bachelor', 'b.tech', 'm.tech', 'msc', 'mba', 'bsc', 'phd', 'doctorate', 
-    'master', "master's", "bachelor's", "int. msc", "b.sc", "m.sc"
-]
+degree_list = ['bachelor', 'b.tech', 'm.tech', 'msc', 'mba', 'bsc', 'phd', 'doctorate',
+               'master', "master's", "bachelor's", "int. msc", "b.sc", "m.sc"]
 
 def clean_text(text):
     text = text.lower()
@@ -31,8 +29,7 @@ def extract_skills(text, skill_list, fuzzy=True, threshold=85):
     skills_found = []
 
     for skill in skill_list:
-        skill_pattern = re.escape(skill)
-        if re.search(r'\b' + skill_pattern + r'\b', text):
+        if re.search(r'\b' + re.escape(skill) + r'\b', text):
             skills_found.append(skill)
 
     if fuzzy:
@@ -46,8 +43,7 @@ def extract_skills(text, skill_list, fuzzy=True, threshold=85):
 
 def extract_experience(text):
     exp_pattern = r'(\d{1,2}\+?\s*(?:years|yrs|year))'
-    matches = re.findall(exp_pattern, text.lower())
-    return matches
+    return re.findall(exp_pattern, text.lower())
 
 def extract_degrees(text):
     found_degrees = []
@@ -64,19 +60,31 @@ def extract_text_from_pdf(pdf_path):
             text += page.extract_text() or ''
     return text
 
-def process_resumes(jd_text, uploaded_resumes):
-    required_skills = extract_skills(jd_text, skill_list)
+def plot_overall_ranking(df_sorted):
+    plt.figure(figsize=(10, 6))
+    plt.barh(df_sorted['Resume'], df_sorted['Match %'], color='#4CAF50')
+    plt.xlabel('Match Percentage')
+    plt.title('Ranking of Resumes by Skill Match')
+    plt.gca().invert_yaxis()
+
+    buf = BytesIO()
+    plt.tight_layout()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    return buf
+
+def process_resumes(jd_input, uploaded_resumes):
+    required_skills = extract_skills(jd_input, skill_list)
+
     if not required_skills:
-        return "❌ No skills detected in Job Description.", None
+        return "No skills found in JD.", None, None
 
     all_results = []
 
     for resume_file in uploaded_resumes:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp.write(resume_file.read())
-            tmp_path = tmp.name
+        path = resume_file.name  # Gradio gives a NamedString with .name
+        text = extract_text_from_pdf(path)
 
-        text = extract_text_from_pdf(tmp_path)
         skills = extract_skills(text, skill_list)
         experience = extract_experience(text)
         degrees = extract_degrees(text)
@@ -84,10 +92,10 @@ def process_resumes(jd_text, uploaded_resumes):
         matched_skills = [skill for skill in skills if skill in required_skills]
         skill_gaps = [skill for skill in required_skills if skill not in skills]
 
-        match_percentage = round((len(matched_skills) / len(required_skills)) * 100, 2) if required_skills else 0
+        match_percentage = round((len(matched_skills) / len(required_skills)) * 100, 2)
 
         all_results.append({
-            'Resume': resume_file.name,
+            'Resume': os.path.basename(path),
             'Match %': match_percentage,
             'Matched Skills': ", ".join(matched_skills),
             'Skill Gaps': ", ".join(skill_gaps),
@@ -95,28 +103,33 @@ def process_resumes(jd_text, uploaded_resumes):
             'Degrees': ", ".join(degrees),
         })
 
-        os.remove(tmp_path)
-
     df = pd.DataFrame(all_results)
     df_sorted = df.sort_values(by='Match %', ascending=False).reset_index(drop=True)
-    return df_sorted.to_markdown(index=False), df_sorted
 
-def launch_app(jd_text, resumes):
-    markdown_table, _ = process_resumes(jd_text, resumes)
-    return markdown_table
+    graph = plot_overall_ranking(df_sorted)
 
-# 🎯 Gradio UI
-iface = gr.Interface(
-    fn=launch_app,
-    inputs=[
-        gr.Textbox(label="Paste Job Description Here", lines=10),
-        gr.File(label="Upload Resume PDFs", file_types=['.pdf'], file_count="multiple")
-    ],
-    outputs=gr.Markdown(label="📄 Ranked Resumes (Skill Match %)"),
-    title="Resume Matcher",
-    description="Upload multiple resumes and paste a Job Description. Get a ranked list based on skill match, degrees, and experience.",
-)
+    return "✅ Ranking complete!", df_sorted, graph
 
-iface.launch(server_name="0.0.0.0", server_port=10000)
+with gr.Blocks() as app:
+    gr.Markdown("# 📄 Resume Matcher App")
+    gr.Markdown("Upload resumes and paste a job description to find the best matches.")
 
-      
+    jd_input = gr.Textbox(lines=10, label="Job Description")
+    resumes_input = gr.File(file_types=[".pdf"], file_count="multiple", label="Upload Resumes (PDF)")
+
+    btn = gr.Button("Run Matching")
+    output_text = gr.Textbox(label="Status")
+    output_table = gr.Dataframe(label="Ranked Results")
+    output_plot = gr.Image(label="Resume Ranking Graph")
+
+    def run_pipeline(jd_input, resumes_input):
+        return process_resumes(jd_input, resumes_input)
+
+    btn.click(fn=run_pipeline,
+              inputs=[jd_input, resumes_input],
+              outputs=[output_text, output_table, output_plot])
+
+# For Render, must call app.launch() only if this is main
+if __name__ == "__main__":
+    app.launch()
+
