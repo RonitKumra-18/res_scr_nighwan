@@ -2,7 +2,7 @@ import os
 import re
 import pdfplumber
 import pandas as pd
-import matplotlib.pyplot.pyplot as plt
+import matplotlib.pyplot as plt
 import gradio as gr
 from fuzzywuzzy import fuzz
 from io import BytesIO
