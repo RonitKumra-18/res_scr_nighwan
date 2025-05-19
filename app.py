@@ -131,4 +131,4 @@ with gr.Blocks() as demo:
 
 # Required for Render
 if __name__ == "__main__":
-    app.launch(server_name="0.0.0.0", server_port=10000)
+    demo.launch(server_name="0.0.0.0", server_port=10000)
