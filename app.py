@@ -51,16 +51,17 @@ def extract_text_from_pdf(pdf_path):
             text += page.extract_text() or ''
     return text
 
-def plot_skill_match(resume_name, matched_skills, skill_gaps):
-    labels = ['Matched Skills', 'Skill Gaps']
-    sizes = [len(matched_skills), len(skill_gaps)]
-    colors = ['#4CAF50', '#FF5733']
-
-    fig, ax = plt.subplots(figsize=(5, 5))
-    ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=140)
-    ax.set_title(f'Skill Match for {resume_name}')
+def plot_match_bar_chart(results_df):
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.bar(results_df['Resume'], results_df['Match %'], color='#4CAF50')
+    ax.set_xlabel("Resumes")
+    ax.set_ylabel("Match Percentage")
+    ax.set_title("Skill Match Percentage for Resumes")
+    ax.set_ylim(0, 100)
+    plt.xticks(rotation=45, ha='right')
 
     buf = io.BytesIO()
+    plt.tight_layout()
     plt.savefig(buf, format='png')
     plt.close(fig)
     buf.seek(0)
@@ -73,11 +74,18 @@ def process_resumes(jd_text, resumes_dir):
         return "❌ No skills detected in JD.", pd.DataFrame(), None
 
     all_results = []
-    first_plot = None
+    # No need to generate first_plot now
+...
+# After the loop finishes
+   df = pd.DataFrame(all_results)
+   df_sorted = df.sort_values(by='Match %', ascending=False).reset_index(drop=True)
+   summary = df_sorted[['Resume', 'Match %', 'Matched Skills', 'Skill Gaps', 'Experience', 'Degrees']].to_string(index=False)
 
-    for file_name in os.listdir(resumes_dir):
-        if not file_name.endswith('.pdf'):
-            continue
+# Generate the bar chart here
+   match_plot = plot_match_bar_chart(df_sorted)
+
+   return summary, df_sorted, match_plot
+
 
         full_path = os.path.join(resumes_dir, file_name)
         text = extract_text_from_pdf(full_path)
