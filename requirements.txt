@@ -1,8 +1,9 @@
-
-gradio
+ray[serve]
+fastapi
+uvicorn
+pdfplumber
+fuzzywuzzy
 pandas
 matplotlib
-fuzzywuzzy
-python-Levenshtein
-pdfplumber
 Pillow
+python-multipart
