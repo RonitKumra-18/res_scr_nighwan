@@ -74,18 +74,10 @@ def process_resumes(jd_text, resumes_dir):
         return "❌ No skills detected in JD.", pd.DataFrame(), None
 
     all_results = []
-    # No need to generate first_plot now
-...
-# After the loop finishes
-   df = pd.DataFrame(all_results)
-   df_sorted = df.sort_values(by='Match %', ascending=False).reset_index(drop=True)
-   summary = df_sorted[['Resume', 'Match %', 'Matched Skills', 'Skill Gaps', 'Experience', 'Degrees']].to_string(index=False)
 
-# Generate the bar chart here
-   match_plot = plot_match_bar_chart(df_sorted)
-
-   return summary, df_sorted, match_plot
-
+    for file_name in os.listdir(resumes_dir):
+        if not file_name.endswith('.pdf'):
+            continue
 
         full_path = os.path.join(resumes_dir, file_name)
         text = extract_text_from_pdf(full_path)
@@ -97,9 +89,6 @@ def process_resumes(jd_text, resumes_dir):
         matched_skills = [s for s in skills if s in required_skills]
         skill_gaps = [s for s in required_skills if s not in skills]
         match_pct = round((len(matched_skills) / len(required_skills)) * 100, 2)
-
-        if first_plot is None:
-            first_plot = plot_skill_match(file_name, matched_skills, skill_gaps)
 
         all_results.append({
             'Resume': file_name,
@@ -113,7 +102,11 @@ def process_resumes(jd_text, resumes_dir):
     df = pd.DataFrame(all_results)
     df_sorted = df.sort_values(by='Match %', ascending=False).reset_index(drop=True)
     summary = df_sorted[['Resume', 'Match %', 'Matched Skills', 'Skill Gaps', 'Experience', 'Degrees']].to_string(index=False)
-    return summary, df_sorted, first_plot
+
+    # Generate the bar chart here
+    match_plot = plot_match_bar_chart(df_sorted)
+
+    return summary, df_sorted, match_plot
 
 # ---- Gradio Interface ----
 def run_app(jd_text, resume_folder):
@@ -131,7 +124,7 @@ with gr.Blocks() as demo:
 
     output_text = gr.Textbox(label="Matching Summary")
     output_table = gr.Dataframe(label="Detailed Match Table")
-    output_img = gr.Image(label="Skill Match Pie Chart")
+    output_img = gr.Image(label="Skill Match Bar Chart")
 
     run_btn.click(fn=run_app,
                   inputs=[jd_input, resume_folder],
