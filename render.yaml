@@ -1,9 +1,1 @@
-services:
-  - type: web
-    name: resume-matcher-api
-    runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
-    envVars:
-      - key: PORT
-        value: 8000
+
