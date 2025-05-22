@@ -1,9 +1,1 @@
-ray[serve]
-fastapi
-uvicorn
-pdfplumber
-fuzzywuzzy
-pandas
-matplotlib
-Pillow
-python-multipart
+
